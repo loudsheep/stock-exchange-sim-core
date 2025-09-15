@@ -1,4 +1,5 @@
 use axum::response::IntoResponse;
+use serde_json::json;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -25,11 +26,11 @@ impl IntoResponse for Error {
             Error::LoginFailed => (axum::http::StatusCode::UNAUTHORIZED, "Login failed".to_string()),
         };
 
-        // let body = axum::Json(serde_json::json!({
-        //     "error": error_message,
-        // }));
+        let body = axum::Json(json!({
+            "error": error_message,
+        }));
 
-        (status, error_message).into_response()
+        (status, body).into_response()
     }
 }
 
