@@ -8,7 +8,6 @@ mod auth;
 mod errors;
 mod models;
 mod routes;
-mod web;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
