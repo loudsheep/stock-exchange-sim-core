@@ -1,4 +1,4 @@
-use axum::response::IntoResponse;
+use axum::{http::StatusCode, response::IntoResponse};
 use serde_json::json;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -11,6 +11,8 @@ pub enum Error {
     BadRequest(String),
     InternalServerError,
     LoginFailed,
+    NotImplemented,
+    Conflict(String),
 }
 
 impl IntoResponse for Error {
@@ -24,6 +26,8 @@ impl IntoResponse for Error {
             Error::BadRequest(msg) => (axum::http::StatusCode::BAD_REQUEST, format!("Bad request: {}", msg)),
             Error::InternalServerError => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
             Error::LoginFailed => (axum::http::StatusCode::UNAUTHORIZED, "Login failed".to_string()),
+            Error::NotImplemented => (axum::http::StatusCode::NOT_IMPLEMENTED, "Not Implemented".to_string()),
+            Error::Conflict(msg) => (axum::http::StatusCode::CONFLICT, format!("Conflict: {}", msg)),
         };
 
         let body = axum::Json(json!({
@@ -43,8 +47,14 @@ impl std::fmt::Display for Error {
             Error::BadRequest(msg) => write!(f, "Bad request: {}", msg),
             Error::InternalServerError => write!(f, "Internal server error"),
             Error::LoginFailed => write!(f, "Login failed"),
+            Error::NotImplemented => write!(f, "Not Implemented"),
+            Error::Conflict(msg) => write!(f, "Conflict: {}", msg),
         }
     }
 }
 
 impl std::error::Error for Error {}
+
+pub async fn not_found_handler() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "Not Found")
+}

@@ -1,13 +1,22 @@
+use crate::errors::not_found_handler;
+
 pub use self::errors::{Error, Result};
 use axum::{Router, routing::get};
-use sqlx::postgres::PgPoolOptions;
-use std::net::SocketAddr;
+use sqlx::{PgPool, postgres::PgPoolOptions};
+use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber;
 
 mod auth;
 mod errors;
 mod models;
+mod repository;
 mod routes;
+mod services;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: Arc<PgPool>,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,9 +39,14 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to run migrations.");
 
+    let state = AppState {
+        pool: Arc::new(pool),
+    };
+
     let app = Router::new()
         .route("/", get(|| async { "Hello, stock-sim!" }))
-        .merge(routes::routes());
+        .merge(routes::routes(state))
+        .fallback(not_found_handler);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("listening on http://{}", addr);

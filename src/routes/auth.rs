@@ -1,23 +1,29 @@
-use axum::{Json, Router, routing::post};
+use axum::{Json, Router, extract::State, routing::post};
 use serde::{Deserialize, Serialize};
 
-use crate::{auth::jwt::Claims, Error, Result};
+use crate::{
+    AppState, Error, Result,
+    auth::jwt::Claims,
+    repository::{user_repository::UserRepository},
+};
 
-pub fn routes() -> Router {
+pub fn routes(state: AppState) -> Router {
     Router::new()
-    .route("/login", post(login))
-    .route("/logout", post(logout))
+        .route("/login", post(login))
+        .route("/logout", post(logout))
+        .route("/register", post(register))
+        .with_state(state)
 }
 
-async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<AuthBody>> {
-    if payload.username.is_empty() || payload.password.is_empty() {
+async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
+    if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(
-            "Username and password cannot be empty".into(),
+            "Email and password cannot be empty".into(),
         ));
     }
 
     // Dummy authentication logic for demonstration purposes
-    if payload.username != "user" && payload.password != "password" {
+    if payload.email != "user" && payload.password != "password" {
         return Err(Error::Unauthorized);
     }
 
@@ -26,11 +32,32 @@ async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<AuthBody>> {
     let token = crate::auth::jwt::create_jwt("user_id_123", &secret)
         .map_err(|_| Error::InternalServerError)?;
 
-
-    Ok(Json(AuthBody {
+    Ok(Json(LoginResponse {
         access_token: token,
         token_type: "Bearer".into(),
     }))
+}
+
+async fn register(
+    State(state): State<AppState>,
+    Json(payload): Json<RegisterRequest>,
+) -> Result<Json<&'static str>> {
+    let repository = UserRepository::new(state.pool.as_ref());
+    if payload.email.is_empty() || payload.password.is_empty() {
+        return Err(Error::BadRequest(
+            "Email and password cannot be empty".into(),
+        ));
+    }
+
+    let user_exists = repository.get_user_by_email(&payload.email).await?;
+    if user_exists.is_some() {
+        return Err(Error::Conflict("Email already exists".into()));
+    }
+
+    repository
+        .create_user(&payload.email, &payload.password)
+        .await?;
+    Ok(Json("User registered successfully"))
 }
 
 async fn logout(claims: Claims) -> Result<Json<&'static str>> {
@@ -39,13 +66,19 @@ async fn logout(claims: Claims) -> Result<Json<&'static str>> {
 }
 
 #[derive(Debug, Serialize)]
-struct AuthBody {
+struct LoginResponse {
     access_token: String,
     token_type: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct LoginRequest {
-    username: String,
+    email: String,
+    password: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RegisterRequest {
+    email: String,
     password: String,
 }

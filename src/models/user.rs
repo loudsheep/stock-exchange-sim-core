@@ -1,9 +1,10 @@
+use sqlx::types::BigDecimal;
 use uuid::Uuid;
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct User {
     pub id: Uuid,
-    pub username: String,
+    pub email: String,
     pub password: String,
-    pub balance: f64,
+    pub balance: BigDecimal,
 }
