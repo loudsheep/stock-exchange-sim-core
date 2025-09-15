@@ -4,3 +4,22 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Axum web framework
+axum = "0.8.4"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Database + Postgres
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "postgres", "uuid", "chrono", "migrate"] }
+
+# Tracing + logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+# UUIDs + time handling
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+anyhow = "1.0.99"
+
+dotenvy = "0.15"
