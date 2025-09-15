@@ -1,7 +1,14 @@
+pub use self::errors::{Error, Result};
 use axum::{Router, routing::get};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tracing_subscriber;
+
+mod auth;
+mod errors;
+mod models;
+mod routes;
+mod web;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -23,11 +30,13 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to run migrations.");
 
-    let app = Router::new().route("/", get(|| async { "Hello, stock-sim!" }));
+    let app = Router::new()
+        .route("/", get(|| async { "Hello, stock-sim!" }))
+        .merge(routes::routes());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("listening on {}", addr);
-    
+
     axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
 
     Ok(())
