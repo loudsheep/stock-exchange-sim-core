@@ -1,5 +1,4 @@
 use sqlx::types::BigDecimal;
-use uuid::Uuid;
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct User {

@@ -18,8 +18,8 @@ pub enum Error {
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match &self {
-            Error::Database(e) => {
-                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {}", e))
+            Error::Database(_e) => {
+                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
             }
             Error::NotFound => (axum::http::StatusCode::NOT_FOUND, "Resource not found".to_string()),
             Error::Unauthorized => (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),

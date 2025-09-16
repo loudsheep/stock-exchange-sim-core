@@ -11,7 +11,7 @@ pub struct Claims {
 
 pub fn create_jwt(user_id: &str, secret: &str) -> anyhow::Result<String> {
     let expiration = Utc::now()
-        .checked_add_signed(Duration::hours(24))
+        .checked_add_signed(Duration::hours(1))
         .unwrap()
         .timestamp();
 
