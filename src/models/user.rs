@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct User {
-    pub id: Uuid,
+    pub id: i32,
     pub email: String,
     pub password: String,
     pub balance: BigDecimal,

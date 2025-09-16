@@ -1,18 +1,14 @@
-use axum::{Json, Router, extract::State, routing::post};
+use axum::{Extension, Json, Router, routing::post};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 
-use crate::{
-    AppState, Error, Result,
-    auth::jwt::Claims,
-    repository::{user_repository::UserRepository},
-};
+use crate::{Error, Result, auth::jwt::Claims, repository::user_repository::UserRepository};
 
-pub fn routes(state: AppState) -> Router {
+pub fn routes() -> Router {
     Router::new()
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/register", post(register))
-        .with_state(state)
 }
 
 async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
@@ -39,10 +35,10 @@ async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>>
 }
 
 async fn register(
-    State(state): State<AppState>,
+    db: Extension<PgPool>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(state.pool.as_ref());
+    let repository = UserRepository::new(&db);
     if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(
             "Email and password cannot be empty".into(),

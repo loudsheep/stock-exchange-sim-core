@@ -1,7 +1,7 @@
 use crate::errors::not_found_handler;
 
 pub use self::errors::{Error, Result};
-use axum::{Router, routing::get};
+use axum::{routing::get, Extension, Router};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber;
@@ -39,14 +39,11 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to run migrations.");
 
-    let state = AppState {
-        pool: Arc::new(pool),
-    };
-
     let app = Router::new()
         .route("/", get(|| async { "Hello, stock-sim!" }))
-        .merge(routes::routes(state))
-        .fallback(not_found_handler);
+        .merge(routes::routes())
+        .layer(Extension(pool))
+        .fallback(not_found_handler).into_make_service();
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("listening on http://{}", addr);
