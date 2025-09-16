@@ -1,4 +1,4 @@
-use axum::{Extension, Json, Router, routing::post};
+use axum::{routing::{get, post}, Extension, Json, Router};
 use serde::Deserialize;
 use sqlx::{PgPool, types::BigDecimal};
 
@@ -6,8 +6,23 @@ use crate::{Result, auth::jwt::Claims, repository::user_repository::UserReposito
 
 pub fn routes() -> Router {
     Router::new()
+        .route("/", get(get_balance))
         .route("/deposit", post(deposit))
         .route("/withdraw", post(withdraw))
+}
+
+async fn get_balance(
+    claims: Claims,
+    db: Extension<PgPool>,
+) -> Result<Json<f64>> {
+    let repository = UserRepository::new(&db);
+    let user = repository.get_user_by_id(claims.user_id).await?;
+    if user.is_none() {
+        return Err(crate::Error::Unauthorized);
+    }
+    let user = user.unwrap();
+
+    Ok(Json(user.balance.to_plain_string().parse::<f64>().unwrap_or(0.0)))
 }
 
 async fn deposit(
