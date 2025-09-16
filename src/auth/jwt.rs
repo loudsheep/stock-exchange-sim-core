@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    sub: String, // user id
-    exp: usize,  // expiration timestamp
+    pub user_id: i32, // user id
+    pub exp: usize,  // expiration timestamp
 }
 
-pub fn create_jwt(user_id: &str, secret: &str) -> anyhow::Result<String> {
+pub fn create_jwt(user_id: i32, secret: &str) -> anyhow::Result<String> {
     let expiration = Utc::now()
         .checked_add_signed(Duration::hours(1))
         .unwrap()
@@ -18,7 +18,7 @@ pub fn create_jwt(user_id: &str, secret: &str) -> anyhow::Result<String> {
     println!("Secret: {}", secret);
 
     let claims = Claims {
-        sub: user_id.to_string(),
+        user_id,
         exp: expiration as usize,
     };
 

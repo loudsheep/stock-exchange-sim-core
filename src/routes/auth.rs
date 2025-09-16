@@ -20,11 +20,6 @@ async fn login(db: Extension<PgPool>, Json(payload): Json<LoginRequest>) -> Resu
         ));
     }
 
-    // Dummy authentication logic for demonstration purposes
-    // if payload.email != "user" && payload.password != "password" {
-    //     return Err(Error::Unauthorized);
-    // }
-
     let user = repository.get_user_by_email(&payload.email).await?;
     if user.is_none() {
         return Err(Error::Unauthorized);
@@ -39,7 +34,7 @@ async fn login(db: Extension<PgPool>, Json(payload): Json<LoginRequest>) -> Resu
 
     let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
-    let token = crate::auth::jwt::create_jwt("user_id_123", &secret)
+    let token = crate::auth::jwt::create_jwt(user.id, &secret)
         .map_err(|_| Error::InternalServerError)?;
 
     Ok(Json(LoginResponse {
@@ -74,7 +69,7 @@ async fn register(
 }
 
 async fn logout(_claims: Claims) -> Result<Json<&'static str>> {
-    // In a real application, you might want to invalidate the token here
+    // TODO invalidate the token here
     Ok(Json("Logged out successfully"))
 }
 
