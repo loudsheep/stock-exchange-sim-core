@@ -2,7 +2,7 @@ use axum::{Extension, Json, Router, routing::post};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-use crate::{Error, Result, auth::jwt::Claims, repository::user_repository::UserRepository};
+use crate::{auth::{jwt::Claims, password::{hash_password, verify_password}}, repository::user_repository::UserRepository, Error, Result};
 
 pub fn routes() -> Router {
     Router::new()
@@ -11,7 +11,9 @@ pub fn routes() -> Router {
         .route("/register", post(register))
 }
 
-async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
+async fn login(db: Extension<PgPool>, Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
+    let repository = UserRepository::new(&db);
+
     if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(
             "Email and password cannot be empty".into(),
@@ -19,7 +21,19 @@ async fn login(Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>>
     }
 
     // Dummy authentication logic for demonstration purposes
-    if payload.email != "user" && payload.password != "password" {
+    // if payload.email != "user" && payload.password != "password" {
+    //     return Err(Error::Unauthorized);
+    // }
+
+    let user = repository.get_user_by_email(&payload.email).await?;
+    if user.is_none() {
+        return Err(Error::Unauthorized);
+    }
+    
+    let user = user.unwrap();
+    let is_valid = verify_password(&payload.password, &user.password)?;
+
+    if !is_valid {
         return Err(Error::Unauthorized);
     }
 
@@ -39,6 +53,7 @@ async fn register(
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<&'static str>> {
     let repository = UserRepository::new(&db);
+
     if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(
             "Email and password cannot be empty".into(),
@@ -50,13 +65,15 @@ async fn register(
         return Err(Error::Conflict("Email already exists".into()));
     }
 
+    let hashed_password = hash_password(&payload.password)?;
+
     repository
-        .create_user(&payload.email, &payload.password)
+        .create_user(&payload.email, &hashed_password)
         .await?;
     Ok(Json("User registered successfully"))
 }
 
-async fn logout(claims: Claims) -> Result<Json<&'static str>> {
+async fn logout(_claims: Claims) -> Result<Json<&'static str>> {
     // In a real application, you might want to invalidate the token here
     Ok(Json("Logged out successfully"))
 }
