@@ -1,4 +1,4 @@
-use sqlx::types::BigDecimal;
+use bigdecimal::BigDecimal;
 
 use crate::{Error, Result, models::user::User};
 
@@ -16,7 +16,7 @@ impl<'a> UserRepository<'a> {
             User,
             r#"
             INSERT INTO users (email, password, balance)
-            VALUES ($1, $2, 1000)
+            VALUES ($1, $2, 1000.0)
             RETURNING id, email, password, balance
             "#,
             email,

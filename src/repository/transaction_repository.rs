@@ -1,4 +1,5 @@
-use sqlx::{PgPool, types::BigDecimal};
+use sqlx::{PgPool};
+use bigdecimal::BigDecimal;
 
 use crate::{Error, Result, models::transaction::Transaction};
 

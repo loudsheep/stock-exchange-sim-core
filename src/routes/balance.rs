@@ -1,8 +1,12 @@
-use axum::{routing::{get, post}, Extension, Json, Router};
+use axum::{
+    Extension, Json, Router,
+    routing::{get, post},
+};
+use bigdecimal::{BigDecimal, FromPrimitive};
 use serde::Deserialize;
-use sqlx::{PgPool, types::BigDecimal};
+use sqlx::PgPool;
 
-use crate::{auth::jwt::Claims, repository::user_repository::UserRepository, AppState, Result};
+use crate::{AppState, Result, auth::jwt::Claims, repository::user_repository::UserRepository};
 
 pub fn routes() -> Router {
     Router::new()
@@ -11,10 +15,7 @@ pub fn routes() -> Router {
         .route("/withdraw", post(withdraw))
 }
 
-async fn get_balance(
-    claims: Claims,
-    db: Extension<PgPool>,
-) -> Result<Json<f64>> {
+async fn get_balance(claims: Claims, db: Extension<PgPool>) -> Result<Json<f64>> {
     let repository = UserRepository::new(&db);
     let user = repository.get_user_by_id(claims.user_id).await?;
     if user.is_none() {
@@ -22,7 +23,9 @@ async fn get_balance(
     }
     let user = user.unwrap();
 
-    Ok(Json(user.balance.to_plain_string().parse::<f64>().unwrap_or(0.0)))
+    Ok(Json(
+        user.balance.to_plain_string().parse::<f64>().unwrap_or(0.0),
+    ))
 }
 
 async fn deposit(
@@ -32,7 +35,7 @@ async fn deposit(
 ) -> Result<Json<&'static str>> {
     let repository = UserRepository::new(&db.pool);
 
-    if payload.amount <= 0 {
+    if payload.amount <= 0.0 {
         return Err(crate::Error::BadRequest(
             "Deposit amount must be positive".into(),
         ));
@@ -43,7 +46,7 @@ async fn deposit(
         return Err(crate::Error::Unauthorized);
     }
     let user = user.unwrap();
-    let amount_bd = BigDecimal::from(payload.amount);
+    let amount_bd = BigDecimal::from_f64(payload.amount).unwrap_or(0.into());
     let new_balance = user.balance + amount_bd;
     repository.update_user_balance(user.id, new_balance).await?;
 
@@ -56,7 +59,7 @@ async fn withdraw(
     Json(payload): Json<WithdrawRequest>,
 ) -> Result<Json<&'static str>> {
     let repository = UserRepository::new(&db.pool);
-    if payload.amount <= 0 {
+    if payload.amount <= 0.0 {
         return Err(crate::Error::BadRequest(
             "Withdraw amount must be positive".into(),
         ));
@@ -67,7 +70,7 @@ async fn withdraw(
     }
     let user = user.unwrap();
 
-    let amount_bd = BigDecimal::from(payload.amount);
+    let amount_bd = BigDecimal::from_f64(payload.amount).unwrap_or(0.into());
     let new_balance = user.balance - amount_bd;
     if new_balance < BigDecimal::from(0) {
         return Err(crate::Error::BadRequest("Insufficient funds".into()));
@@ -79,10 +82,10 @@ async fn withdraw(
 
 #[derive(Debug, Deserialize)]
 struct DepositRequest {
-    amount: i64,
+    amount: f64,
 }
 
 #[derive(Debug, Deserialize)]
 struct WithdrawRequest {
-    amount: i64,
+    amount: f64,
 }
