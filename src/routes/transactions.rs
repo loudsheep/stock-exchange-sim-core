@@ -27,10 +27,7 @@ async fn get_transactions(
     let transactions_repository = TransactionRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    let user = user.ok_or(crate::Error::Unauthorized)?;
 
     let transactions = transactions_repository
         .get_transactions_by_user(user.id)
@@ -60,10 +57,7 @@ async fn create_buy_transaction(
     let holdings_repository = HoldingsRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    let user = user.ok_or(crate::Error::Unauthorized)?;
 
     if payload.quantity <= 0 || payload.price <= BigDecimal::from(0) {
         return Err(crate::Error::BadRequest(
@@ -71,8 +65,7 @@ async fn create_buy_transaction(
         ));
     }
 
-    let user_balance_bd =
-        BigDecimal::from_str(&user.balance.to_string()).unwrap_or(BigDecimal::from(0));
+    let user_balance_bd = user.balance.clone();
     let total_cost = BigDecimal::from(payload.quantity) * &payload.price;
     if total_cost > user_balance_bd {
         return Err(crate::Error::BadRequest(
@@ -93,7 +86,7 @@ async fn create_buy_transaction(
     let price_bd = BigDecimal::from_str(&payload.price.to_string())
         .map_err(|_| crate::Error::BadRequest("Invalid price format".into()))?;
 
-    let new_holding = if let Some(existing_holding) = holding {
+    let _new_holding = if let Some(existing_holding) = holding {
         let total_quantity = existing_holding.quantity + payload.quantity;
         let average_price = (existing_holding.average_price * existing_holding.quantity
             + price_bd * payload.quantity)
@@ -128,10 +121,7 @@ async fn create_sell_transaction(
     let holdings_repository = HoldingsRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    let user = user.ok_or(crate::Error::Unauthorized)?;
 
     if payload.quantity <= 0 || payload.price <= BigDecimal::from(0) {
         return Err(crate::Error::BadRequest(
@@ -143,12 +133,15 @@ async fn create_sell_transaction(
         .get_holding_by_user_and_ticker(user.id, &payload.ticker)
         .await?;
 
-    if holding.is_none() || holding.as_ref().unwrap().quantity < payload.quantity {
+    let holding = holding.ok_or_else(|| {
+        crate::Error::BadRequest("Insufficient holdings for this transaction".into())
+    })?;
+
+    if holding.quantity < payload.quantity {
         return Err(crate::Error::BadRequest(
             "Insufficient holdings for this transaction".into(),
         ));
     }
-    let holding = holding.unwrap();
 
     let price_bd = BigDecimal::from_str(&payload.price.to_string())
         .map_err(|_| crate::Error::BadRequest("Invalid price format".into()))?;

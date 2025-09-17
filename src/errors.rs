@@ -18,16 +18,38 @@ pub enum Error {
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match &self {
-            Error::Database(_e) => {
-                (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
-            }
-            Error::NotFound => (axum::http::StatusCode::NOT_FOUND, "Resource not found".to_string()),
-            Error::Unauthorized => (axum::http::StatusCode::UNAUTHORIZED, "Unauthorized".to_string()),
-            Error::BadRequest(msg) => (axum::http::StatusCode::BAD_REQUEST, format!("Bad request: {}", msg)),
-            Error::InternalServerError => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
-            Error::LoginFailed => (axum::http::StatusCode::UNAUTHORIZED, "Login failed".to_string()),
-            Error::NotImplemented => (axum::http::StatusCode::NOT_IMPLEMENTED, "Not Implemented".to_string()),
-            Error::Conflict(msg) => (axum::http::StatusCode::CONFLICT, format!("Conflict: {}", msg)),
+            Error::Database(_e) => (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
+            Error::NotFound => (
+                axum::http::StatusCode::NOT_FOUND,
+                "Resource not found".to_string(),
+            ),
+            Error::Unauthorized => (
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Unauthorized".to_string(),
+            ),
+            Error::BadRequest(msg) => (
+                axum::http::StatusCode::BAD_REQUEST,
+                format!("Bad request: {}", msg),
+            ),
+            Error::InternalServerError => (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
+            Error::LoginFailed => (
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Login failed".to_string(),
+            ),
+            Error::NotImplemented => (
+                axum::http::StatusCode::NOT_IMPLEMENTED,
+                "Not Implemented".to_string(),
+            ),
+            Error::Conflict(msg) => (
+                axum::http::StatusCode::CONFLICT,
+                format!("Conflict: {}", msg),
+            ),
         };
 
         let body = axum::Json(json!({

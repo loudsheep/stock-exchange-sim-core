@@ -1,21 +1,21 @@
-use axum::extract::FromRequestParts;
+use axum::extract::{FromRequestParts, State};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
+use crate::AppState;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub user_id: i32, // user id
-    pub exp: usize,  // expiration timestamp
+    pub exp: usize,   // expiration timestamp
 }
 
 pub fn create_jwt(user_id: i32, secret: &str) -> anyhow::Result<String> {
     let expiration = Utc::now()
         .checked_add_signed(Duration::hours(1))
-        .unwrap()
+        .ok_or_else(|| anyhow::anyhow!("Failed to calculate expiration time"))?
         .timestamp();
-
-    println!("Secret: {}", secret);
 
     let claims = Claims {
         user_id,
@@ -40,7 +40,6 @@ pub fn decode_jwt(token: &str, secret: &str) -> anyhow::Result<Claims> {
     Ok(data.claims)
 }
 
-
 impl<S> FromRequestParts<S> for Claims
 where
     S: Send + Sync,
@@ -55,10 +54,16 @@ where
             .headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|h| h.to_str().ok())
-            .ok_or((axum::http::StatusCode::UNAUTHORIZED, "Missing Authorization header".into()))?;
+            .ok_or((
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Missing Authorization header".into(),
+            ))?;
 
         if !auth_header.starts_with("Bearer ") {
-            return Err((axum::http::StatusCode::UNAUTHORIZED, "Invalid Authorization header".into()));
+            return Err((
+                axum::http::StatusCode::UNAUTHORIZED,
+                "Invalid Authorization header".into(),
+            ));
         }
 
         let token = &auth_header[7..]; // Skip "Bearer "

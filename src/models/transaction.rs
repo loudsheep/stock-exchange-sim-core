@@ -7,5 +7,5 @@ pub struct Transaction {
     pub ticker: String,
     pub quantity: i32,
     pub price: BigDecimal,
-    pub transaction_type: String
+    pub transaction_type: String,
 }
