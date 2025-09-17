@@ -2,7 +2,7 @@ use axum::{routing::{get, post}, Extension, Json, Router};
 use serde::Deserialize;
 use sqlx::{PgPool, types::BigDecimal};
 
-use crate::{Result, auth::jwt::Claims, repository::user_repository::UserRepository};
+use crate::{auth::jwt::Claims, repository::user_repository::UserRepository, AppState, Result};
 
 pub fn routes() -> Router {
     Router::new()
@@ -27,10 +27,10 @@ async fn get_balance(
 
 async fn deposit(
     claims: Claims,
-    db: Extension<PgPool>,
+    db: Extension<AppState>,
     Json(payload): Json<DepositRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(&db);
+    let repository = UserRepository::new(&db.pool);
 
     if payload.amount <= 0 {
         return Err(crate::Error::BadRequest(
@@ -52,10 +52,10 @@ async fn deposit(
 
 async fn withdraw(
     claims: Claims,
-    db: Extension<PgPool>,
+    db: Extension<AppState>,
     Json(payload): Json<WithdrawRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(&db);
+    let repository = UserRepository::new(&db.pool);
     if payload.amount <= 0 {
         return Err(crate::Error::BadRequest(
             "Withdraw amount must be positive".into(),

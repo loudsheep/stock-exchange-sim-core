@@ -1,8 +1,7 @@
 use axum::{Extension, Json, Router, routing::post};
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
 
-use crate::{auth::{jwt::Claims, password::{hash_password, verify_password}}, repository::user_repository::UserRepository, Error, Result};
+use crate::{auth::{jwt::Claims, password::{hash_password, verify_password}}, repository::user_repository::UserRepository, AppState, Error, Result};
 
 pub fn routes() -> Router {
     Router::new()
@@ -11,8 +10,8 @@ pub fn routes() -> Router {
         .route("/register", post(register))
 }
 
-async fn login(db: Extension<PgPool>, Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
-    let repository = UserRepository::new(&db);
+async fn login(db: Extension<AppState>, Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
+    let repository = UserRepository::new(&db.pool);
 
     if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(
@@ -44,10 +43,10 @@ async fn login(db: Extension<PgPool>, Json(payload): Json<LoginRequest>) -> Resu
 }
 
 async fn register(
-    db: Extension<PgPool>,
+    db: Extension<AppState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(&db);
+    let repository = UserRepository::new(&db.pool);
 
     if payload.email.is_empty() || payload.password.is_empty() {
         return Err(Error::BadRequest(

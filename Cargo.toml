@@ -29,3 +29,6 @@ jsonwebtoken = "9.3.1"
 argon2 = "0.5.3"
 tonic = "0.14.2"
 rust_decimal = "1.38.0"
+redis = { version = "0.32.5", features = ["tokio-comp"] }
+bb8 = "0.9.0"
+bb8-redis = "0.24.0"

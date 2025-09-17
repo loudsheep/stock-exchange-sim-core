@@ -4,10 +4,10 @@ use axum::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use sqlx::{types::BigDecimal, PgPool};
+use sqlx::{types::BigDecimal};
 use std::str::FromStr;
 
-use crate::{auth::jwt::Claims, repository::{transaction_repository::TransactionRepository, user_repository::UserRepository}, Result};
+use crate::{auth::jwt::Claims, repository::{transaction_repository::TransactionRepository, user_repository::UserRepository}, AppState, Result};
 
 pub fn routes() -> Router {
     Router::new()
@@ -17,10 +17,10 @@ pub fn routes() -> Router {
 
 async fn get_transactions(
     claims: Claims,
-    db: Extension<PgPool>,
+    db: Extension<AppState>,
 ) -> Result<Json<Vec<TransactionResponse>>> {
-    let users_repository = UserRepository::new(&db);
-    let transactions_repository = TransactionRepository::new(&db);
+    let users_repository = UserRepository::new(&db.pool);
+    let transactions_repository = TransactionRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     if user.is_none() {
@@ -47,11 +47,11 @@ async fn get_transactions(
 
 async fn create_transaction(
     claims: Claims,
-    db: Extension<PgPool>,
+    db: Extension<AppState>,
     Json(payload): Json<CreateTransactionRequest>,
 ) -> Result<Json<TransactionResponse>> {
-    let users_repository = UserRepository::new(&db);
-    let transactions_repository = TransactionRepository::new(&db);
+    let users_repository = UserRepository::new(&db.pool);
+    let transactions_repository = TransactionRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     if user.is_none() {
