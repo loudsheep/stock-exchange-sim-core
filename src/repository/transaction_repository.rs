@@ -38,4 +38,38 @@ impl<'a> TransactionRepository<'a> {
 
         Ok(transaction)
     }
+
+    pub async fn get_transactions_by_user(&self, user_id: i32) -> Result<Vec<Transaction>> {
+        let transactions = sqlx::query_as!(
+            Transaction,
+            r#"
+            SELECT id, user_id, ticker, quantity, price, transaction_type
+            FROM transactions
+            WHERE user_id = $1
+            "#,
+            user_id
+        )
+        .fetch_all(self.pool)
+        .await
+        .map_err(Error::Database)?;
+
+        Ok(transactions)
+    }
+
+    pub async fn get_transaction_by_id(&self, transaction_id: i32) -> Result<Option<Transaction>> {
+        let transaction = sqlx::query_as!(
+            Transaction,
+            r#"
+            SELECT id, user_id, ticker, quantity, price, transaction_type
+            FROM transactions
+            WHERE id = $1
+            "#,
+            transaction_id
+        )
+        .fetch_optional(self.pool)
+        .await
+        .map_err(Error::Database)?;
+
+        Ok(transaction)
+    }
 }
