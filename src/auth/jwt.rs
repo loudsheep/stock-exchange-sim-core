@@ -1,9 +1,7 @@
-use axum::extract::{FromRequestParts, State};
+use axum::extract::FromRequestParts;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
-
-use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {

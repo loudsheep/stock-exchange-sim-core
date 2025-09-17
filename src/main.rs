@@ -31,7 +31,7 @@ pub use self::errors::{Error, Result};
 use axum::{Extension, Router, routing::get};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{net::SocketAddr, sync::Arc};
-use tracing_subscriber;
+use tracing_subscriber::{EnvFilter, fmt};
 
 mod auth;
 mod config;
@@ -63,16 +63,14 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
 
     // Initialize tracing with proper level filtering
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                format!(
-                    "stock_exchange_sim_core={},tower_http=debug",
-                    config.log_level
-                )
-                .into()
-            }),
-        )
+    fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            format!(
+                "stock_exchange_sim_core={},tower_http=debug",
+                config.log_level
+            )
+            .into()
+        }))
         .init();
 
     tracing::info!("Starting Stock Exchange Simulator API");
@@ -102,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Database migrations completed");
 
     // Create Redis pool
-    let manager = bb8_redis::RedisConnectionManager::new(&config.redis_url)?;
+    let manager = bb8_redis::RedisConnectionManager::new(config.redis_url.clone())?;
     let redis_pool = bb8::Pool::builder().build(manager).await.map_err(|e| {
         tracing::error!("Failed to create Redis pool: {}", e);
         e
