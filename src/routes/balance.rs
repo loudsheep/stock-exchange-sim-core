@@ -15,8 +15,8 @@ pub fn routes() -> Router {
         .route("/withdraw", post(withdraw))
 }
 
-async fn get_balance(claims: Claims, db: Extension<PgPool>) -> Result<Json<f64>> {
-    let repository = UserRepository::new(&db);
+async fn get_balance(claims: Claims, db: Extension<AppState>) -> Result<Json<f64>> {
+    let repository = UserRepository::new(&db.pool);
     let user = repository.get_user_by_id(claims.user_id).await?;
     if user.is_none() {
         return Err(crate::Error::Unauthorized);

@@ -50,4 +50,55 @@ impl<'a> HoldingsRepository<'a> {
 
         Ok(holding)
     }
+
+    pub async fn create_holding(
+        &self,
+        user_id: i32,
+        ticker: &str,
+        quantity: i32,
+        average_price: BigDecimal,
+    ) -> Result<Holding> {
+        let holding = sqlx::query_as!(
+            Holding,
+            r#"
+            INSERT INTO holdings (user_id, ticker, quantity, average_price)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, user_id, ticker, quantity, average_price
+            "#,
+            user_id,
+            ticker,
+            quantity,
+            average_price
+        )
+        .fetch_one(self.pool)
+        .await
+        .map_err(Error::Database)?;
+
+        Ok(holding)
+    }
+
+    pub async fn update_holding(
+        &self,
+        holding_id: i32,
+        quantity: i32,
+        average_price: BigDecimal,
+    ) -> Result<Holding> {
+        let holding = sqlx::query_as!(
+            Holding,
+            r#"
+            UPDATE holdings
+            SET quantity = $1, average_price = $2
+            WHERE id = $3
+            RETURNING id, user_id, ticker, quantity, average_price
+            "#,
+            quantity,
+            average_price,
+            holding_id
+        )
+        .fetch_one(self.pool)
+        .await
+        .map_err(Error::Database)?;
+
+        Ok(holding)
+    }
 }
