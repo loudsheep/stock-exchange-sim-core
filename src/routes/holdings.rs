@@ -1,15 +1,11 @@
 use axum::{Extension, Json, Router, routing::get};
 use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 
 use crate::{
     AppState, Result,
     auth::jwt::Claims,
-    repository::{
-        holdings_repository::HoldingsRepository, transaction_repository::TransactionRepository,
-        user_repository::UserRepository,
-    },
+    repository::{holdings_repository::HoldingsRepository, user_repository::UserRepository},
 };
 
 pub fn routes() -> Router {
@@ -24,10 +20,7 @@ async fn get_holdings(
     let holdings_repository = HoldingsRepository::new(&db.pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    let user = user.ok_or(crate::Error::Unauthorized)?;
 
     let holdings = holdings_repository.get_holdings_by_user(user.id).await?;
 

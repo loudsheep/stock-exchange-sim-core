@@ -4,7 +4,7 @@ use axum::{
 };
 use bigdecimal::{BigDecimal, FromPrimitive};
 use serde::Deserialize;
-use sqlx::PgPool;
+use validator::Validate;
 
 use crate::{AppState, Result, auth::jwt::Claims, repository::user_repository::UserRepository};
 
@@ -18,14 +18,15 @@ pub fn routes() -> Router {
 async fn get_balance(claims: Claims, db: Extension<AppState>) -> Result<Json<f64>> {
     let repository = UserRepository::new(&db.pool);
     let user = repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    let user = user.ok_or(crate::Error::Unauthorized)?;
 
-    Ok(Json(
-        user.balance.to_plain_string().parse::<f64>().unwrap_or(0.0),
-    ))
+    let balance = user
+        .balance
+        .to_plain_string()
+        .parse::<f64>()
+        .map_err(|_| crate::Error::InternalServerError)?;
+
+    Ok(Json(balance))
 }
 
 async fn deposit(
@@ -33,20 +34,17 @@ async fn deposit(
     db: Extension<AppState>,
     Json(payload): Json<DepositRequest>,
 ) -> Result<Json<&'static str>> {
+    payload
+        .validate()
+        .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
+
     let repository = UserRepository::new(&db.pool);
 
-    if payload.amount <= 0.0 {
-        return Err(crate::Error::BadRequest(
-            "Deposit amount must be positive".into(),
-        ));
-    }
-
     let user = repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
-    let amount_bd = BigDecimal::from_f64(payload.amount).unwrap_or(0.into());
+    let user = user.ok_or(crate::Error::Unauthorized)?;
+
+    let amount_bd = BigDecimal::from_f64(payload.amount)
+        .ok_or_else(|| crate::Error::BadRequest("Invalid amount format".into()))?;
     let new_balance = user.balance + amount_bd;
     repository.update_user_balance(user.id, new_balance).await?;
 
@@ -58,19 +56,16 @@ async fn withdraw(
     db: Extension<AppState>,
     Json(payload): Json<WithdrawRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(&db.pool);
-    if payload.amount <= 0.0 {
-        return Err(crate::Error::BadRequest(
-            "Withdraw amount must be positive".into(),
-        ));
-    }
-    let user = repository.get_user_by_id(claims.user_id).await?;
-    if user.is_none() {
-        return Err(crate::Error::Unauthorized);
-    }
-    let user = user.unwrap();
+    payload
+        .validate()
+        .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let amount_bd = BigDecimal::from_f64(payload.amount).unwrap_or(0.into());
+    let repository = UserRepository::new(&db.pool);
+    let user = repository.get_user_by_id(claims.user_id).await?;
+    let user = user.ok_or(crate::Error::Unauthorized)?;
+
+    let amount_bd = BigDecimal::from_f64(payload.amount)
+        .ok_or_else(|| crate::Error::BadRequest("Invalid amount format".into()))?;
     let new_balance = user.balance - amount_bd;
     if new_balance < BigDecimal::from(0) {
         return Err(crate::Error::BadRequest("Insufficient funds".into()));
@@ -80,12 +75,14 @@ async fn withdraw(
     Ok(Json("Withdraw successful"))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 struct DepositRequest {
+    #[validate(range(min = 0.01, max = 1_000_000.0))]
     amount: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 struct WithdrawRequest {
+    #[validate(range(min = 0.01, max = 1_000_000.0))]
     amount: f64,
 }

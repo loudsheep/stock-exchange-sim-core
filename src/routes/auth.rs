@@ -1,7 +1,15 @@
 use axum::{Extension, Json, Router, routing::post};
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
-use crate::{auth::{jwt::Claims, password::{hash_password, verify_password}}, repository::user_repository::UserRepository, AppState, Error, Result};
+use crate::{
+    AppState, Error, Result,
+    auth::{
+        jwt::Claims,
+        password::{hash_password, verify_password},
+    },
+    repository::user_repository::UserRepository,
+};
 
 pub fn routes() -> Router {
     Router::new()
@@ -10,31 +18,32 @@ pub fn routes() -> Router {
         .route("/register", post(register))
 }
 
-async fn login(db: Extension<AppState>, Json(payload): Json<LoginRequest>) -> Result<Json<LoginResponse>> {
+async fn login(
+    db: Extension<AppState>,
+    Json(payload): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>> {
+    payload
+        .validate()
+        .map_err(|e| Error::BadRequest(format!("Validation error: {}", e)))?;
+
     let repository = UserRepository::new(&db.pool);
 
-    if payload.email.is_empty() || payload.password.is_empty() {
-        return Err(Error::BadRequest(
-            "Email and password cannot be empty".into(),
-        ));
-    }
-
     let user = repository.get_user_by_email(&payload.email).await?;
-    if user.is_none() {
-        return Err(Error::Unauthorized);
-    }
-    
-    let user = user.unwrap();
+    let user = user.ok_or(Error::Unauthorized)?;
+
     let is_valid = verify_password(&payload.password, &user.password)?;
 
     if !is_valid {
         return Err(Error::Unauthorized);
     }
 
-    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let secret = std::env::var("JWT_SECRET").map_err(|_| {
+        tracing::error!("JWT_SECRET not set in environment");
+        Error::InternalServerError
+    })?;
 
-    let token = crate::auth::jwt::create_jwt(user.id, &secret)
-        .map_err(|_| Error::InternalServerError)?;
+    let token =
+        crate::auth::jwt::create_jwt(user.id, &secret).map_err(|_| Error::InternalServerError)?;
 
     Ok(Json(LoginResponse {
         access_token: token,
@@ -46,13 +55,11 @@ async fn register(
     db: Extension<AppState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<Json<&'static str>> {
-    let repository = UserRepository::new(&db.pool);
+    payload
+        .validate()
+        .map_err(|e| Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    if payload.email.is_empty() || payload.password.is_empty() {
-        return Err(Error::BadRequest(
-            "Email and password cannot be empty".into(),
-        ));
-    }
+    let repository = UserRepository::new(&db.pool);
 
     let user_exists = repository.get_user_by_email(&payload.email).await?;
     if user_exists.is_some() {
@@ -78,14 +85,18 @@ struct LoginResponse {
     token_type: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 struct LoginRequest {
+    #[validate(email, length(min = 3, max = 255))]
     email: String,
+    #[validate(length(min = 8, max = 128))]
     password: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 struct RegisterRequest {
+    #[validate(email, length(min = 3, max = 255))]
     email: String,
+    #[validate(length(min = 8, max = 128))]
     password: String,
 }
