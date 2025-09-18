@@ -29,8 +29,8 @@ async fn get_transactions(
     claims: Claims,
     db: Extension<AppState>,
 ) -> Result<Json<Vec<TransactionResponse>>> {
-    let users_repository = UserRepository::new(&db.pool);
-    let transactions_repository = TransactionRepository::new(&db.pool);
+    let users_repository = UserRepository::new(&db.pg_pool);
+    let transactions_repository = TransactionRepository::new(&db.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
@@ -72,9 +72,9 @@ async fn create_buy_transaction(
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let users_repository = UserRepository::new(&db.pool);
-    let transactions_repository = TransactionRepository::new(&db.pool);
-    let holdings_repository = HoldingsRepository::new(&db.pool);
+    let users_repository = UserRepository::new(&db.pg_pool);
+    let transactions_repository = TransactionRepository::new(&db.pg_pool);
+    let holdings_repository = HoldingsRepository::new(&db.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
@@ -162,9 +162,9 @@ async fn create_sell_transaction(
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let users_repository = UserRepository::new(&db.pool);
-    let transactions_repository = TransactionRepository::new(&db.pool);
-    let holdings_repository = HoldingsRepository::new(&db.pool);
+    let users_repository = UserRepository::new(&db.pg_pool);
+    let transactions_repository = TransactionRepository::new(&db.pg_pool);
+    let holdings_repository = HoldingsRepository::new(&db.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;

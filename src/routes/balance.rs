@@ -16,7 +16,7 @@ pub fn routes() -> Router {
 }
 
 async fn get_balance(claims: Claims, db: Extension<AppState>) -> Result<Json<f64>> {
-    let repository = UserRepository::new(&db.pool);
+    let repository = UserRepository::new(&db.pg_pool);
     let user = repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
 
@@ -38,7 +38,7 @@ async fn deposit(
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let repository = UserRepository::new(&db.pool);
+    let repository = UserRepository::new(&db.pg_pool);
 
     let user = repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
@@ -60,7 +60,7 @@ async fn withdraw(
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let repository = UserRepository::new(&db.pool);
+    let repository = UserRepository::new(&db.pg_pool);
     let user = repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
 

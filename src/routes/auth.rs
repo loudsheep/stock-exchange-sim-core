@@ -26,7 +26,7 @@ async fn login(
         .validate()
         .map_err(|e| Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let repository = UserRepository::new(&db.pool);
+    let repository = UserRepository::new(&db.pg_pool);
 
     let user = repository.get_user_by_email(&payload.email).await?;
     let user = user.ok_or(Error::Unauthorized)?;
@@ -59,7 +59,7 @@ async fn register(
         .validate()
         .map_err(|e| Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let repository = UserRepository::new(&db.pool);
+    let repository = UserRepository::new(&db.pg_pool);
 
     let user_exists = repository.get_user_by_email(&payload.email).await?;
     if user_exists.is_some() {

@@ -16,8 +16,8 @@ async fn get_holdings(
     claims: Claims,
     db: Extension<AppState>,
 ) -> Result<Json<Vec<HoldingResponse>>> {
-    let users_repository = UserRepository::new(&db.pool);
-    let holdings_repository = HoldingsRepository::new(&db.pool);
+    let users_repository = UserRepository::new(&db.pg_pool);
+    let holdings_repository = HoldingsRepository::new(&db.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;

@@ -50,7 +50,7 @@ use config::Config;
 #[derive(Clone)]
 pub struct AppState {
     /// PostgreSQL connection pool
-    pub pool: Arc<PgPool>,
+    pub pg_pool: Arc<PgPool>,
     /// Redis connection pool for caching and session management
     pub redis_pool: Arc<bb8::Pool<bb8_redis::RedisConnectionManager>>,
     /// Application configuration
@@ -109,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Redis connected successfully");
 
     let state = AppState {
-        pool: Arc::new(pool),
+        pg_pool: Arc::new(pool),
         redis_pool: Arc::new(redis_pool),
         config: config.clone(),
     };
