@@ -18,7 +18,7 @@ impl<'a> HoldingsRepository<'a> {
             r#"
             SELECT id, user_id, ticker, quantity, average_price
             FROM holdings
-            WHERE user_id = $1
+            WHERE user_id = $1 AND quantity > 0
             "#,
             user_id
         )
