@@ -1,31 +1,4 @@
-//! # Stock Exchange Simulator Core API
-//!
-//! A REST API for simulating stock trading operations including user authentication,
-//! balance management, stock transactions, and portfolio holdings.
-//!
-//! ## Features
-//!
-//! - JWT-based authentication
-//! - User registration and login
-//! - Balance deposit and withdrawal
-//! - Stock buy and sell transactions
-//! - Portfolio holdings management
-//! - PostgreSQL database integration
-//! - Redis session management
-//!
-//! ## API Endpoints
-//!
-//! - `/auth/register` - User registration
-//! - `/auth/login` - User authentication
-//! - `/balance/` - Get user balance
-//! - `/balance/deposit` - Deposit funds
-//! - `/balance/withdraw` - Withdraw funds
-//! - `/transactions/` - Get user transactions
-//! - `/transactions/buy` - Buy stocks
-//! - `/transactions/sell` - Sell stocks
-//! - `/holdings/` - Get user holdings
-
-use crate::errors::not_found_handler;
+use crate::{errors::not_found_handler, ws::handler::ws_handler};
 
 pub use self::errors::{Error, Result};
 use axum::{Extension, Router, routing::get};
@@ -40,6 +13,7 @@ mod models;
 mod repository;
 mod routes;
 mod services;
+mod ws;
 
 use config::Config;
 
@@ -117,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(|| async { "Hello, stock-sim!" }))
         .route("/health", get(health_check))
+        .route("/ws", get(ws_handler))
         .merge(routes::routes())
         .layer(Extension(state))
         .fallback(not_found_handler)
