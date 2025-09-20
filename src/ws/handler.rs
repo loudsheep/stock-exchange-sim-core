@@ -28,28 +28,63 @@ async fn handle_connection(mut socket: WebSocket, _state: Extension<AppState>) {
     while let Some(Ok(msg)) = socket.recv().await {
         match msg {
             Message::Text(text) => {
-                tracing::info!("Received text message: {}", text);
-                // Echo the message back
-                let _ = socket.send(Message::Text(text)).await;
-            }
-            Message::Binary(bin) => {
-                tracing::info!("Received binary message: {:?}", bin);
-                // Echo the message back
-                let _ = socket.send(Message::Binary(bin)).await;
+                if let Some(ticker) = text.strip_prefix("subscribe:") {
+                    let ticker = ticker.trim().to_uppercase();
+
+                    if !is_valid_ticker(&ticker, &_state).await {
+                        let _ = socket
+                            .send(Message::Text(
+                                format!("Error: Invalid ticker {}", ticker).into(),
+                            ))
+                            .await;
+                        let _ = socket.send(Message::Close(None)).await;
+                        break;
+                    }
+
+                    // regularly send updates every 1 second
+                    let ticker = ticker.clone();
+                    let state = _state.clone();
+                    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
+                    loop {
+                        interval.tick().await;
+
+                        let price = get_price_from_service(&ticker, &state).await;
+                        let response = format!("update:{}:{}", ticker, price);
+
+                        if socket.send(Message::Text(response.into())).await.is_err() {
+                            tracing::info!("Client disconnected, stopping updates for {}", ticker);
+                            break;
+                        }
+                    }
+                } else {
+                    let _ = socket
+                        .send(Message::Text(
+                            "Send subscribe:<TICKER> to start receiving updates".into(),
+                        ))
+                        .await;
+                    continue;
+                }
             }
             Message::Close(frame) => {
                 tracing::info!("Received close message: {:?}", frame);
                 break;
             }
-            Message::Ping(ping) => {
-                tracing::info!("Received ping: {:?}", ping);
-                let _ = socket.send(Message::Pong(ping)).await;
-            }
-            Message::Pong(pong) => {
-                tracing::info!("Received pong: {:?}", pong);
-            }
+            _ => {}
         }
     }
 
     tracing::info!("WebSocket connection closed");
+}
+
+async fn is_valid_ticker(ticker: &str, _state: &AppState) -> bool {
+    // TODO: check against redis and db
+    // for now allow only a few tickers
+    matches!(ticker, "AAPL" | "GOOG" | "MSFT")
+}
+
+async fn get_price_from_service(_ticker: &str, _state: &AppState) -> f64 {
+    // TODO: implement actual price retrieval logic
+    use rand::Rng;
+    let mut rng = rand::rng();
+    100.0 + rng.random_range(0.0..100.0)
 }
