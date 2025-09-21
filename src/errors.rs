@@ -13,6 +13,7 @@ pub enum Error {
     LoginFailed,
     NotImplemented,
     Conflict(String),
+    GrpcError(String),
 }
 
 impl IntoResponse for Error {
@@ -50,6 +51,10 @@ impl IntoResponse for Error {
                 axum::http::StatusCode::CONFLICT,
                 format!("Conflict: {}", msg),
             ),
+            Error::GrpcError(msg) => (
+                StatusCode::BAD_GATEWAY,
+                format!("gRPC error: {}", msg),
+            ),
         };
 
         let body = axum::Json(json!({
@@ -71,6 +76,7 @@ impl std::fmt::Display for Error {
             Error::LoginFailed => write!(f, "Login failed"),
             Error::NotImplemented => write!(f, "Not Implemented"),
             Error::Conflict(msg) => write!(f, "Conflict: {}", msg),
+            Error::GrpcError(msg) => write!(f, "gRPC error: {}", msg),
         }
     }
 }

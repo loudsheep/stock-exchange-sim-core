@@ -16,6 +16,8 @@ pub struct Config {
     pub database_url: String,
     /// Redis connection URL for caching
     pub redis_url: String,
+    /// gRPC server URL for price feed
+    pub grpc_server_url: String,
     /// JWT signing secret key
     pub jwt_secret: String,
     /// Server host address
@@ -59,6 +61,8 @@ impl Config {
                 .map_err(|_| anyhow::anyhow!("DATABASE_URL environment variable is required"))?,
             redis_url: env::var("REDIS_URL")
                 .map_err(|_| anyhow::anyhow!("REDIS_URL environment variable is required"))?,
+            grpc_server_url: env::var("GRPC_SERVER_URL")
+                .map_err(|_| anyhow::anyhow!("GRPC_SERVER_URL environment variable is required"))?,
             jwt_secret: env::var("JWT_SECRET")
                 .map_err(|_| anyhow::anyhow!("JWT_SECRET environment variable is required"))?,
             server_host: env::var("SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),

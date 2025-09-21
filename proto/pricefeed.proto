@@ -1,0 +1,17 @@
+syntax = "proto3";
+package pricefeed;
+
+service PriceFeed {
+  rpc GetPrice(PriceRequest) returns (PriceResponse);
+  rpc StreamPrices(PriceRequest) returns (stream PriceResponse);
+}
+
+message PriceRequest {
+  string ticker = 1;
+}
+
+message PriceResponse {
+  string ticker = 1;
+  double price = 2;
+  int64 timestamp = 3;
+}
