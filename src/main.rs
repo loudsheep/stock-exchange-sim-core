@@ -89,6 +89,13 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
     };
 
+    let grpc_state = state.clone();
+    tokio::spawn(async move {
+        if let Err(e) = grpc::price_updater(Arc::new(grpc_state)).await {
+            tracing::error!("gRPC price updater failed: {}", e);
+        }
+    });
+
     let app = Router::new()
         .route("/", get(|| async { "Hello, stock-sim!" }))
         .route("/health", get(health_check))
