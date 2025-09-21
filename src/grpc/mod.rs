@@ -38,24 +38,24 @@ pub async fn price_updater(state: Arc<AppState>) -> Result<()> {
         // tracing::info!("Received price update: {:?}", update);
 
         // TODO: save the price update to redis (maybe utilize redis pub/sub here?) or database
-        // state
-        //     .redis_pool
-        //     .get()
-        //     .await
-        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?
-        //     .set::<_, _, ()>(&update.ticker, update.price)
-        //     .await
-        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?;
-
-        // // publish to a redis channel for subscribers
-        let _: () = state
+        state
             .redis_pool
             .get()
             .await
             .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?
-            .publish(format!("price_update:{}", update.ticker), format!("{}:{}", update.ticker, update.price))
+            .set::<_, _, ()>(&update.ticker, update.price)
             .await
             .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?;
+
+        // // publish to a redis channel for subscribers
+        // let _: () = state
+        //     .redis_pool
+        //     .get()
+        //     .await
+        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?
+        //     .publish(format!("price_update:{}", update.ticker), format!("{}:{}", update.ticker, update.price))
+        //     .await
+        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?;
     }
 
     Ok(())

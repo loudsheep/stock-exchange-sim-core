@@ -8,6 +8,7 @@ use axum::{
 };
 
 use crate::AppState;
+use redis::AsyncCommands;
 
 pub async fn ws_handler(ws: WebSocketUpgrade, state: Extension<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_connection(socket, state))
@@ -81,10 +82,18 @@ async fn is_valid_ticker(ticker: &str, _state: &AppState) -> bool {
     // for now allow only a few tickers
     matches!(ticker, "AAPL" | "GOOG" | "MSFT")
 }
-
 async fn get_price_from_service(_ticker: &str, _state: &AppState) -> f64 {
-    // TODO: implement actual price retrieval logic
-    use rand::Rng;
-    let mut rng = rand::rng();
-    100.0 + rng.random_range(0.0..100.0)
+    match _state.redis_pool.get().await {
+        Ok(mut conn) => match conn.get::<_, f64>(_ticker).await {
+            Ok(price) => price,
+            Err(e) => {
+                tracing::error!("Failed to get price from redis: {}", e);
+                0.0
+            }
+        },
+        Err(e) => {
+            tracing::error!("Failed to get redis connection: {}", e);
+            0.0
+        }
+    }
 }
