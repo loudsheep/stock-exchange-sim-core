@@ -78,9 +78,20 @@ async fn handle_connection(mut socket: WebSocket, _state: Extension<AppState>) {
 }
 
 async fn is_valid_ticker(ticker: &str, _state: &AppState) -> bool {
-    // TODO: check against redis and db
-    // for now allow only a few tickers
-    matches!(ticker, "AAPL" | "GOOG" | "MSFT")
+    // check against redis
+    match _state.redis_pool.get().await {
+        Ok(mut conn) => match conn.exists::<_, bool>(ticker).await {
+            Ok(exists) => exists,
+            Err(e) => {
+                tracing::error!("Failed to check ticker in redis: {}", e);
+                false
+            }
+        },
+        Err(e) => {
+            tracing::error!("Failed to get redis connection: {}", e);
+            false
+        }
+    }
 }
 async fn get_price_from_service(_ticker: &str, _state: &AppState) -> f64 {
     match _state.redis_pool.get().await {
