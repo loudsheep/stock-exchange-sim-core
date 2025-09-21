@@ -1,15 +1,11 @@
 use std::sync::Arc;
 
 use price_feed::PriceRequest;
-use tonic::codec;
-use tonic::transport::{Channel, channel};
-use tonic::{Request, Response, Status};
+use redis::AsyncCommands;
+use tonic::transport::Channel;
 
-use price_feed::PriceResponse;
-use price_feed::price_feed_server::PriceFeed;
-
-use crate::grpc::price_feed::price_feed_client::PriceFeedClient;
 use crate::{AppState, Result};
+use price_feed::price_feed_client::PriceFeedClient;
 
 pub mod price_feed {
     tonic::include_proto!("pricefeed");
@@ -25,7 +21,7 @@ pub async fn price_updater(state: Arc<AppState>) -> Result<()> {
     let mut client = PriceFeedClient::new(channel);
 
     let request = tonic::Request::new(PriceRequest {
-        ticker: "AAPL".into(),
+        ticker: "ALL".into(),
     });
 
     let mut stream = client
@@ -39,35 +35,28 @@ pub async fn price_updater(state: Arc<AppState>) -> Result<()> {
         .await
         .map_err(|e| crate::errors::Error::GrpcError(e.to_string()))?
     {
-        tracing::info!("Received price update: {:?}", update);
+        // tracing::info!("Received price update: {:?}", update);
 
         // TODO: save the price update to redis (maybe utilize redis pub/sub here?) or database
+        // state
+        //     .redis_pool
+        //     .get()
+        //     .await
+        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?
+        //     .set::<_, _, ()>(&update.ticker, update.price)
+        //     .await
+        //     .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?;
+
+        // // publish to a redis channel for subscribers
+        let _: () = state
+            .redis_pool
+            .get()
+            .await
+            .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?
+            .publish(format!("price_update:{}", update.ticker), format!("{}:{}", update.ticker, update.price))
+            .await
+            .map_err(|e| crate::errors::Error::RedisError(e.to_string()))?;
     }
 
     Ok(())
 }
-
-// TODO: Implement the gRPC server from this:
-// #[derive(Debug, Default)]
-// pub struct GrpcClient {}
-
-// #[tonic::async_trait]
-// impl PriceFeed for GrpcClient {
-//     type StreamPricesStream = codec::Streaming<price_feed::PriceResponse>;
-
-//     async fn get_price(
-//         &self,
-//         request: Request<PriceRequest>,
-//     ) -> Result<Response<PriceResponse>, Status> {
-//         // Implement your gRPC client logic here
-//         unimplemented!()
-//     }
-
-//     async fn stream_prices(
-//         &self,
-//         request: Request<PriceRequest>,
-//     ) -> Result<Response<Self::StreamPricesStream>, Status> {
-//         // Implement your gRPC client logic here
-//         unimplemented!()
-//     }
-// }

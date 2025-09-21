@@ -14,6 +14,7 @@ pub enum Error {
     NotImplemented,
     Conflict(String),
     GrpcError(String),
+    RedisError(String),
 }
 
 impl IntoResponse for Error {
@@ -55,6 +56,10 @@ impl IntoResponse for Error {
                 StatusCode::BAD_GATEWAY,
                 format!("gRPC error: {}", msg),
             ),
+            Error::RedisError(msg) => (
+                StatusCode::BAD_GATEWAY,
+                format!("Redis error: {}", msg),
+            ),
         };
 
         let body = axum::Json(json!({
@@ -77,6 +82,7 @@ impl std::fmt::Display for Error {
             Error::NotImplemented => write!(f, "Not Implemented"),
             Error::Conflict(msg) => write!(f, "Conflict: {}", msg),
             Error::GrpcError(msg) => write!(f, "gRPC error: {}", msg),
+            Error::RedisError(msg) => write!(f, "Redis error: {}", msg),
         }
     }
 }
