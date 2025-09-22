@@ -78,6 +78,15 @@ async fn handle_connection(mut socket: WebSocket, _state: Extension<AppState>) {
 }
 
 async fn is_valid_ticker(ticker: &str, _state: &AppState) -> bool {
+    // Basic ticker validation: only alphanumeric characters, 1-10 chars
+    if ticker.is_empty() || ticker.len() > 10 {
+        return false;
+    }
+    
+    if !ticker.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return false;
+    }
+    
     // check against redis
     match _state.redis_pool.get().await {
         Ok(mut conn) => match conn.exists::<_, bool>(ticker).await {

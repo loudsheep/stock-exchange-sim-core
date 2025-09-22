@@ -29,11 +29,15 @@ async fn login(
     let repository = UserRepository::new(&db.pg_pool);
 
     let user = repository.get_user_by_email(&payload.email).await?;
-    let user = user.ok_or(Error::Unauthorized)?;
+    let user = user.ok_or_else(|| {
+        tracing::warn!("Login attempt with non-existent email: {}", payload.email);
+        Error::Unauthorized
+    })?;
 
     let is_valid = verify_password(&payload.password, &user.password)?;
 
     if !is_valid {
+        tracing::warn!("Failed login attempt for user ID: {}", user.id);
         return Err(Error::Unauthorized);
     }
 
@@ -42,8 +46,10 @@ async fn login(
         Error::InternalServerError
     })?;
 
-    let token =
-        crate::auth::jwt::create_jwt(user.id, &secret).map_err(|_| Error::InternalServerError)?;
+    let token = crate::auth::jwt::create_jwt(user.id, &secret, db.config.jwt_expiration_hours)
+        .map_err(|_| Error::InternalServerError)?;
+
+    tracing::info!("Successful login for user ID: {}", user.id);
 
     Ok(Json(LoginResponse {
         access_token: token,
