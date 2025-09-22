@@ -132,22 +132,41 @@ src/
 - **JWT Tokens**: Secure, stateless authentication with configurable expiration
 - **Password Security**: Argon2 hashing with cryptographically secure salt generation
 - **Token Validation**: Comprehensive JWT validation with proper error handling
+- **Session Management**: Secure session handling via JWT tokens
 
 ### Input Security
 - **Request Validation**: All inputs validated using the `validator` crate
 - **Size Limits**: Configurable maximum request sizes prevent DoS attacks
 - **Input Sanitization**: Ticker symbols and user inputs properly sanitized
 - **SQL Injection Protection**: Compile-time SQL verification with SQLx
+- **Type Safety**: Rust's type system prevents many common vulnerabilities
 
-### Error Handling
+### Error Handling & Information Security
 - **Information Disclosure Prevention**: Generic error messages for external users
 - **Comprehensive Logging**: Detailed error logging for debugging without exposure
 - **Structured Responses**: Consistent error response format with timestamps
+- **Audit Trail**: Security events logged for monitoring and compliance
 
 ### Infrastructure Security
 - **Database Security**: Parameterized queries and connection pooling
 - **Redis Security**: Secure connection handling and data validation
 - **gRPC Security**: Optional TLS support for external service connections
+- **Security Headers**: Middleware available for CSRF, XSS, and clickjacking protection
+
+### Security Middleware (Available for Production)
+```rust
+// Add to main.rs for production deployments:
+.layer(axum::middleware::from_fn(security::security_headers))
+.layer(axum::middleware::from_fn(security::request_timeout))
+```
+
+Security headers include:
+- `X-Frame-Options: DENY` (Clickjacking protection)
+- `X-Content-Type-Options: nosniff` (MIME sniffing protection)
+- `X-XSS-Protection: 1; mode=block` (XSS protection)
+- `Strict-Transport-Security` (HTTPS enforcement)
+- `Content-Security-Policy` (Content injection protection)
+- `Referrer-Policy` (Information disclosure prevention)
 
 ## 🛠️ Setup & Installation
 
@@ -363,9 +382,54 @@ To connect your own gRPC server:
 - [ ] Enable TLS for gRPC connections in production
 - [ ] Configure proper database credentials
 - [ ] Set up monitoring and logging
+- [ ] Enable security middleware in main.rs
 - [ ] Configure rate limiting (future enhancement)
 - [ ] Review and harden network security
 - [ ] Set up backup strategies for database
+- [ ] Configure HTTPS with proper TLS certificates
+- [ ] Set up database connection encryption
+- [ ] Implement log rotation and monitoring
+- [ ] Configure environment-specific secrets management
+
+### Security Best Practices
+
+#### Environment Security
+```bash
+# Use strong, unique secrets
+JWT_SECRET=$(openssl rand -base64 32)
+
+# Enable TLS for production
+GRPC_TLS_ENABLED=true
+
+# Limit request sizes appropriately
+MAX_REQUEST_SIZE=1048576  # 1MB default
+
+# Set reasonable JWT expiration
+JWT_EXPIRATION_HOURS=24
+```
+
+#### Application Security
+```rust
+// Enable security middleware in production
+let app = Router::new()
+    .merge(routes::routes())
+    .layer(axum::middleware::from_fn(security::security_headers))
+    .layer(axum::middleware::from_fn(security::request_timeout))
+    .layer(Extension(state));
+```
+
+#### Database Security
+- Use connection pooling with appropriate limits
+- Enable SSL/TLS for database connections
+- Implement database connection timeouts
+- Use read-only replicas for read operations
+- Regular security updates for PostgreSQL
+
+#### Redis Security  
+- Enable authentication on Redis instance
+- Use TLS for Redis connections in production
+- Configure appropriate timeout values
+- Monitor Redis memory usage and performance
 
 ### Performance Optimization
 
