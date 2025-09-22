@@ -7,10 +7,10 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::AppState;
+use crate::{auth::jwt::Claims, AppState};
 use redis::AsyncCommands;
 
-pub async fn ws_handler(ws: WebSocketUpgrade, state: Extension<AppState>) -> impl IntoResponse {
+pub async fn ws_handler(ws: WebSocketUpgrade, state: Extension<AppState>, _claims: Claims) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_connection(socket, state))
 }
 
