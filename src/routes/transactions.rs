@@ -3,11 +3,12 @@ use axum::{
     routing::{get, post},
 };
 use bigdecimal::BigDecimal;
+use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
 use crate::{
-    AppState, Result,
+    AppState, Error, Result,
     auth::jwt::Claims,
     repository::{
         holdings_repository::HoldingsRepository, transaction_repository::TransactionRepository,
@@ -65,26 +66,41 @@ async fn get_transactions(
 /// All operations should be atomic to ensure data consistency.
 async fn create_buy_transaction(
     claims: Claims,
-    db: Extension<AppState>,
+    state: Extension<AppState>,
     Json(payload): Json<CreateBuyTransactionRequest>,
 ) -> Result<Json<TransactionResponse>> {
     payload
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let users_repository = UserRepository::new(&db.pg_pool);
-    let transactions_repository = TransactionRepository::new(&db.pg_pool);
-    let holdings_repository = HoldingsRepository::new(&db.pg_pool);
+    let users_repository = UserRepository::new(&state.pg_pool);
+    let transactions_repository = TransactionRepository::new(&state.pg_pool);
+    let holdings_repository = HoldingsRepository::new(&state.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
 
-    if payload.price <= BigDecimal::from(0) {
+    // get price from redis
+    let mut redis_conn = state
+        .redis_pool
+        .get()
+        .await
+        .map_err(|_| Error::InternalServerError)?;
+    let price_str: Option<String> = redis_conn
+        .get::<_, Option<String>>(&payload.ticker)
+        .await
+        .map_err(|_| Error::InternalServerError)?;
+    let price: BigDecimal = price_str
+        .ok_or_else(|| crate::Error::BadRequest("Invalid ticker or price not available".into()))?
+        .parse()
+        .map_err(|_| crate::Error::BadRequest("Failed to parse price from redis".into()))?;
+
+    if price <= BigDecimal::from(0) {
         return Err(crate::Error::BadRequest("Price must be positive".into()));
     }
 
     let user_balance_bd = user.balance.clone();
-    let total_cost = BigDecimal::from(payload.quantity) * &payload.price;
+    let total_cost = BigDecimal::from(payload.quantity) * &price;
     if total_cost > user_balance_bd {
         return Err(crate::Error::BadRequest(
             "Insufficient balance for this transaction".into(),
@@ -97,7 +113,7 @@ async fn create_buy_transaction(
             user.id,
             &payload.ticker,
             payload.quantity,
-            payload.price.clone(),
+            price.clone(),
             "buy",
         )
         .await?;
@@ -116,19 +132,14 @@ async fn create_buy_transaction(
     let _new_holding = if let Some(existing_holding) = holding {
         let total_quantity = existing_holding.quantity + payload.quantity;
         let average_price = (existing_holding.average_price * existing_holding.quantity
-            + &payload.price * payload.quantity)
+            + &price * payload.quantity)
             / total_quantity;
         holdings_repository
             .update_holding(existing_holding.id, total_quantity, average_price)
             .await?
     } else {
         holdings_repository
-            .create_holding(
-                user.id,
-                &payload.ticker,
-                payload.quantity,
-                payload.price.clone(),
-            )
+            .create_holding(user.id, &payload.ticker, payload.quantity, price.clone())
             .await?
     };
 
@@ -155,21 +166,38 @@ async fn create_buy_transaction(
 /// All operations should be atomic to ensure data consistency.
 async fn create_sell_transaction(
     claims: Claims,
-    db: Extension<AppState>,
+    state: Extension<AppState>,
     Json(payload): Json<CreateSellTransactionRequest>,
 ) -> Result<Json<TransactionResponse>> {
     payload
         .validate()
         .map_err(|e| crate::Error::BadRequest(format!("Validation error: {}", e)))?;
 
-    let users_repository = UserRepository::new(&db.pg_pool);
-    let transactions_repository = TransactionRepository::new(&db.pg_pool);
-    let holdings_repository = HoldingsRepository::new(&db.pg_pool);
+    let users_repository = UserRepository::new(&state.pg_pool);
+    let transactions_repository = TransactionRepository::new(&state.pg_pool);
+    let holdings_repository = HoldingsRepository::new(&state.pg_pool);
 
     let user = users_repository.get_user_by_id(claims.user_id).await?;
     let user = user.ok_or(crate::Error::Unauthorized)?;
 
-    if payload.price <= BigDecimal::from(0) {
+    // get price from redis
+    let mut redis_conn = state
+        .redis_pool
+        .get()
+        .await
+        .map_err(|_| Error::InternalServerError)?;
+
+    let price_str: Option<String> = redis_conn
+        .get::<_, Option<String>>(&payload.ticker)
+        .await
+        .map_err(|_| Error::InternalServerError)?;
+
+    let price: BigDecimal = price_str
+        .ok_or_else(|| crate::Error::BadRequest("Invalid ticker or price not available".into()))?
+        .parse()
+        .map_err(|_| crate::Error::BadRequest("Invalid price format".into()))?;
+
+    if price <= BigDecimal::from(0) {
         return Err(crate::Error::BadRequest("Price must be positive".into()));
     }
 
@@ -193,13 +221,13 @@ async fn create_sell_transaction(
             user.id,
             &payload.ticker,
             payload.quantity,
-            payload.price.clone(),
+            price.clone(),
             "sell",
         )
         .await?;
 
     // Update user balance (add the proceeds from sale)
-    let sale_proceeds = &payload.price * payload.quantity;
+    let sale_proceeds = &price * payload.quantity;
     let new_balance = user.balance + sale_proceeds;
     users_repository
         .update_user_balance(user.id, new_balance)
@@ -228,7 +256,6 @@ struct CreateBuyTransactionRequest {
     ticker: String,
     #[validate(range(min = 1, max = 10000))]
     quantity: i32,
-    price: BigDecimal,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -237,7 +264,6 @@ struct CreateSellTransactionRequest {
     ticker: String,
     #[validate(range(min = 1, max = 10000))]
     quantity: i32,
-    price: BigDecimal,
 }
 
 #[derive(Debug, Serialize)]
