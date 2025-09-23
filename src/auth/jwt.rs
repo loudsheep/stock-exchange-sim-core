@@ -9,9 +9,9 @@ pub struct Claims {
     pub exp: usize,   // expiration timestamp
 }
 
-pub fn create_jwt(user_id: i32, secret: &str) -> anyhow::Result<String> {
+pub fn create_jwt(user_id: i32, secret: &str, expiration_hours: i64) -> anyhow::Result<String> {
     let expiration = Utc::now()
-        .checked_add_signed(Duration::hours(1))
+        .checked_add_signed(Duration::hours(expiration_hours))
         .ok_or_else(|| anyhow::anyhow!("Failed to calculate expiration time"))?
         .timestamp();
 

@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use serde_json::json;
+use chrono;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -20,10 +21,14 @@ pub enum Error {
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match &self {
-            Error::Database(_e) => (
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error".to_string(),
-            ),
+            Error::Database(_e) => {
+                // Log the actual error but don't expose it to users
+                tracing::error!("Database error: {}", _e);
+                (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
+            },
             Error::NotFound => (
                 axum::http::StatusCode::NOT_FOUND,
                 "Resource not found".to_string(),
@@ -32,17 +37,25 @@ impl IntoResponse for Error {
                 axum::http::StatusCode::UNAUTHORIZED,
                 "Unauthorized".to_string(),
             ),
-            Error::BadRequest(msg) => (
-                axum::http::StatusCode::BAD_REQUEST,
-                format!("Bad request: {}", msg),
-            ),
+            Error::BadRequest(msg) => {
+                // Sanitize error messages to prevent information disclosure
+                let sanitized_msg = if msg.len() > 200 {
+                    "Invalid request parameters".to_string()
+                } else {
+                    msg.clone()
+                };
+                (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    format!("Bad request: {}", sanitized_msg),
+                )
+            },
             Error::InternalServerError => (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "Internal server error".to_string(),
             ),
             Error::LoginFailed => (
                 axum::http::StatusCode::UNAUTHORIZED,
-                "Login failed".to_string(),
+                "Invalid credentials".to_string(),
             ),
             Error::NotImplemented => (
                 axum::http::StatusCode::NOT_IMPLEMENTED,
@@ -52,18 +65,27 @@ impl IntoResponse for Error {
                 axum::http::StatusCode::CONFLICT,
                 format!("Conflict: {}", msg),
             ),
-            Error::GrpcError(msg) => (
-                StatusCode::BAD_GATEWAY,
-                format!("gRPC error: {}", msg),
-            ),
-            Error::RedisError(msg) => (
-                StatusCode::BAD_GATEWAY,
-                format!("Redis error: {}", msg),
-            ),
+            Error::GrpcError(_msg) => {
+                // Log the actual error but provide generic message
+                tracing::error!("gRPC error: {}", _msg);
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "External service unavailable".to_string(),
+                )
+            },
+            Error::RedisError(_msg) => {
+                // Log the actual error but provide generic message
+                tracing::error!("Redis error: {}", _msg);
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "Cache service unavailable".to_string(),
+                )
+            },
         };
 
         let body = axum::Json(json!({
             "error": error_message,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
         }));
 
         (status, body).into_response()

@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::{auth::jwt::Claims, AppState};
+use crate::{auth::jwt::Claims, AppState, security::utils::is_valid_ticker_format};
 use redis::AsyncCommands;
 
 pub async fn ws_handler(ws: WebSocketUpgrade, state: Extension<AppState>, _claims: Claims) -> impl IntoResponse {
@@ -78,6 +78,11 @@ async fn handle_connection(mut socket: WebSocket, _state: Extension<AppState>) {
 }
 
 async fn is_valid_ticker(ticker: &str, _state: &AppState) -> bool {
+    // Basic ticker validation: only alphanumeric characters, 1-10 chars
+    if !is_valid_ticker_format(ticker) {
+        return false;
+    }
+    
     // check against redis
     match _state.redis_pool.get().await {
         Ok(mut conn) => match conn.exists::<_, bool>(ticker).await {
