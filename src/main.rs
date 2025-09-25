@@ -13,7 +13,6 @@ mod grpc;
 mod models;
 mod repository;
 mod routes;
-mod security;
 mod services;
 mod ws;
 
@@ -103,9 +102,6 @@ async fn main() -> anyhow::Result<()> {
         .route("/ws", get(ws_handler))
         .merge(routes::routes())
         .layer(Extension(state))
-        // Security middleware can be added here for production:
-        // .layer(axum::middleware::from_fn(security::security_headers))
-        // .layer(axum::middleware::from_fn(security::request_timeout))
         .fallback(not_found_handler)
         .into_make_service();
 

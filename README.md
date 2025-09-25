@@ -29,40 +29,6 @@ A robust, high-performance REST API for simulating stock trading operations, bui
 - 📏 **Request Limits** - Configurable request size limits for DDoS protection
 - 🎯 **Type Safety** - Rust's strong type system prevents runtime errors
 
-## 🏗️ Architecture
-
-The application follows a clean architecture pattern with clear separation of concerns:
-
-```
-src/
-├── auth/              # Authentication & authorization
-│   ├── jwt.rs         # JWT token handling
-│   ├── password.rs    # Password hashing/verification
-│   └── mod.rs
-├── config/            # Configuration management
-│   └── config.rs      # Environment-based configuration
-├── errors/            # Centralized error handling
-│   └── errors.rs      # Error types and HTTP responses
-├── grpc/              # gRPC client integration
-│   └── mod.rs         # Price feed service client
-├── models/            # Database models
-├── repository/        # Data access layer
-│   ├── user_repository.rs
-│   ├── transaction_repository.rs
-│   ├── holdings_repository.rs
-│   └── mod.rs
-├── routes/            # HTTP route handlers
-│   ├── auth.rs        # Authentication endpoints
-│   ├── balance.rs     # Balance management
-│   ├── transactions.rs # Trading operations
-│   ├── holdings.rs    # Portfolio management
-│   └── mod.rs
-├── services/          # Business logic services
-├── ws/                # WebSocket handlers
-│   └── handler.rs     # Real-time price updates
-└── main.rs           # Application entry point
-```
-
 ## 🔧 API Endpoints
 
 ### Authentication
@@ -125,48 +91,6 @@ src/
 ### System Health
 - `GET /health` - Health check endpoint
 - `GET /` - Service status
-
-## 🔐 Security Features
-
-### Authentication & Authorization
-- **JWT Tokens**: Secure, stateless authentication with configurable expiration
-- **Password Security**: Argon2 hashing with cryptographically secure salt generation
-- **Token Validation**: Comprehensive JWT validation with proper error handling
-- **Session Management**: Secure session handling via JWT tokens
-
-### Input Security
-- **Request Validation**: All inputs validated using the `validator` crate
-- **Size Limits**: Configurable maximum request sizes prevent DoS attacks
-- **Input Sanitization**: Ticker symbols and user inputs properly sanitized
-- **SQL Injection Protection**: Compile-time SQL verification with SQLx
-- **Type Safety**: Rust's type system prevents many common vulnerabilities
-
-### Error Handling & Information Security
-- **Information Disclosure Prevention**: Generic error messages for external users
-- **Comprehensive Logging**: Detailed error logging for debugging without exposure
-- **Structured Responses**: Consistent error response format with timestamps
-- **Audit Trail**: Security events logged for monitoring and compliance
-
-### Infrastructure Security
-- **Database Security**: Parameterized queries and connection pooling
-- **Redis Security**: Secure connection handling and data validation
-- **gRPC Security**: Optional TLS support for external service connections
-- **Security Headers**: Middleware available for CSRF, XSS, and clickjacking protection
-
-### Security Middleware (Available for Production)
-```rust
-// Add to main.rs for production deployments:
-.layer(axum::middleware::from_fn(security::security_headers))
-.layer(axum::middleware::from_fn(security::request_timeout))
-```
-
-Security headers include:
-- `X-Frame-Options: DENY` (Clickjacking protection)
-- `X-Content-Type-Options: nosniff` (MIME sniffing protection)
-- `X-XSS-Protection: 1; mode=block` (XSS protection)
-- `Strict-Transport-Security` (HTTPS enforcement)
-- `Content-Security-Policy` (Content injection protection)
-- `Referrer-Policy` (Information disclosure prevention)
 
 ## 🛠️ Setup & Installation
 
@@ -314,7 +238,7 @@ message PriceResponse {
 
 ### Connecting Your gRPC Server
 
-**[PLACEHOLDER: Link to your gRPC price feed server repository will go here]**
+[Simple random price generation](https://github.com/loudsheep/stock-exchange-sim-prices)
 
 To connect your own gRPC server:
 
@@ -323,198 +247,9 @@ To connect your own gRPC server:
 3. Enable TLS if your server requires it: `GRPC_TLS_ENABLED=true`
 4. Ensure your server streams price updates for ticker "ALL" to update all prices
 
-## 🧪 Development
-
-### Development Workflow
-
-1. **Code Quality**
-   ```bash
-   # Format code
-   cargo fmt
-   
-   # Run linter
-   cargo clippy --all-targets --all-features
-   
-   # Type checking
-   cargo check
-   ```
-
-2. **Testing**
-   ```bash
-   # Run tests
-   cargo test
-   
-   # Run tests with output
-   cargo test -- --nocapture
-   ```
-
-3. **Database Development**
-   ```bash
-   # Create new migration
-   sqlx migrate add create_new_table
-   
-   # Run migrations
-   sqlx migrate run
-   
-   # Revert last migration
-   sqlx migrate revert
-   ```
-
-### Development Tools
-
-- **SQLx CLI**: Database migration management
-- **Cargo Watch**: Automatic rebuilds during development
-- **Rust Analyzer**: IDE support for enhanced development experience
-
-### Adding New Features
-
-1. Define models in `src/models/`
-2. Create repository methods in `src/repository/`
-3. Implement business logic in `src/services/`
-4. Add route handlers in `src/routes/`
-5. Update tests and documentation
-
-## 🚀 Production Deployment
-
-### Security Checklist
-
-- [ ] Generate strong JWT secret (32+ characters)
-- [ ] Enable TLS for gRPC connections in production
-- [ ] Configure proper database credentials
-- [ ] Set up monitoring and logging
-- [ ] Enable security middleware in main.rs
-- [ ] Configure rate limiting (future enhancement)
-- [ ] Review and harden network security
-- [ ] Set up backup strategies for database
-- [ ] Configure HTTPS with proper TLS certificates
-- [ ] Set up database connection encryption
-- [ ] Implement log rotation and monitoring
-- [ ] Configure environment-specific secrets management
-
-### Security Best Practices
-
-#### Environment Security
-```bash
-# Use strong, unique secrets
-JWT_SECRET=$(openssl rand -base64 32)
-
-# Enable TLS for production
-GRPC_TLS_ENABLED=true
-
-# Limit request sizes appropriately
-MAX_REQUEST_SIZE=1048576  # 1MB default
-
-# Set reasonable JWT expiration
-JWT_EXPIRATION_HOURS=24
-```
-
-#### Application Security
-```rust
-// Enable security middleware in production
-let app = Router::new()
-    .merge(routes::routes())
-    .layer(axum::middleware::from_fn(security::security_headers))
-    .layer(axum::middleware::from_fn(security::request_timeout))
-    .layer(Extension(state));
-```
-
-#### Database Security
-- Use connection pooling with appropriate limits
-- Enable SSL/TLS for database connections
-- Implement database connection timeouts
-- Use read-only replicas for read operations
-- Regular security updates for PostgreSQL
-
-#### Redis Security  
-- Enable authentication on Redis instance
-- Use TLS for Redis connections in production
-- Configure appropriate timeout values
-- Monitor Redis memory usage and performance
-
-### Performance Optimization
-
-- [ ] Configure appropriate connection pool sizes
-- [ ] Set up Redis clustering for high availability
-- [ ] Configure database read replicas if needed
-- [ ] Monitor and optimize query performance
-- [ ] Set up proper caching strategies
-
-### Monitoring & Observability
-
-- Monitor JWT token validation failures
-- Track database connection pool usage
-- Monitor gRPC service availability
-- Log authentication and authorization events
-- Track trading volume and error rates
-
-## 📋 Data Models
-
-### User Model
-```rust
-struct User {
-    id: i32,
-    email: String,        // Unique email address
-    password: String,     // Argon2 hashed password
-    balance: BigDecimal,  // Account balance with precision
-    created_at: DateTime<Utc>,
-}
-```
-
-### Transaction Model
-```rust
-struct Transaction {
-    id: i32,
-    user_id: i32,                    // Foreign key to users
-    ticker: String,                  // Stock symbol
-    quantity: i32,                   // Number of shares
-    price: BigDecimal,               // Price per share
-    transaction_type: String,        // "buy" or "sell"
-    created_at: DateTime<Utc>,
-}
-```
-
-### Holding Model
-```rust
-struct Holding {
-    id: i32,
-    user_id: i32,                    // Foreign key to users
-    ticker: String,                  // Stock symbol
-    quantity: i32,                   // Current shares held
-    average_price: BigDecimal,       // Average cost basis
-    updated_at: DateTime<Utc>,
-}
-```
-
-## 🤝 Contributing
-
-### Code Standards
-
-- Follow Rust standard formatting (`cargo fmt`)
-- Pass all clippy lints (`cargo clippy`)
-- Include comprehensive tests for new features
-- Update documentation for API changes
-- Follow security best practices
-
-### Pull Request Process
-
-1. Fork the repository
-2. Create a feature branch
-3. Implement your changes with tests
-4. Ensure all checks pass
-5. Update documentation as needed
-6. Submit a pull request with clear description
-
-### Issue Reporting
-
-When reporting issues, please include:
-- Rust version and target platform
-- Complete error messages and stack traces
-- Steps to reproduce the issue
-- Expected vs actual behavior
-
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the AGPL License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -526,4 +261,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Note**: This is the core trading service. For real-time price feeds, connect it to your gRPC price feed server. **[Link to gRPC server repository will be added here]**
+**Note**: This is the core trading service. For real-time price feeds, connect it to your gRPC price feed server.
